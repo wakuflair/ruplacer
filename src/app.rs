@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use clap::Parser;
 use colored::*;
-use std::io::{prelude::*, IsTerminal};
+use std::io::{IsTerminal, prelude::*};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::str::FromStr;
 
-use crate::{console::Verbosity, replace, Console, DirectoryPatcher, Query, Settings};
+use crate::{Console, DirectoryPatcher, Query, Settings, console::Verbosity, replace};
 
 #[derive(Debug, Clone, Copy)]
 enum ColorWhen {
@@ -131,7 +131,7 @@ struct Options {
 
 fn regex_query_or_die(pattern: &str, replacement: &str, word: bool) -> Query {
     let actual_pattern = if word {
-        format!(r"\b({})\b", pattern)
+        format!(r"\b({pattern})\b")
     } else {
         pattern.to_string()
     };
@@ -260,7 +260,7 @@ fn run_on_stdin(query: Query) -> Result<()> {
         if let Some(replacement) = replacement {
             println!("{}", replacement.output());
         } else {
-            println!("{}", line);
+            println!("{line}");
         }
     }
     Ok(())

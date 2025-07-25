@@ -19,7 +19,7 @@ fn setup_test(tmp_dir: &TempDir) -> PathBuf {
         .expect("Failed to execute process");
     #[cfg(target_os = "windows")]
     let status = Command::new("xcopy")
-        .args(&[
+        .args([
             "/E",
             "/I",
             "/Q",
@@ -34,14 +34,14 @@ fn setup_test(tmp_dir: &TempDir) -> PathBuf {
 
 fn assert_replaced(path: &Path) {
     let contents =
-        fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read from {:?}", path));
+        fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read from {path:?}"));
     assert!(contents.contains("new"));
     assert!(!contents.contains("old"));
 }
 
 fn assert_not_replaced(path: &Path) {
     let contents =
-        fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read from {:?}", path));
+        fs::read_to_string(path).unwrap_or_else(|_| panic!("Could not read from {path:?}"));
     assert!(!contents.contains("new"));
     assert!(contents.contains("old"));
 }
