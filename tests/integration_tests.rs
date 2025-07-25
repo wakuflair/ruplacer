@@ -274,3 +274,21 @@ fn test_ignore_file_types_by_incorrect_glob_pattern() {
     let err = run_ruplacer(&data_path, settings).unwrap_err();
     assert!(err.to_string().contains("unrecognized file type"));
 }
+
+#[test]
+fn test_can_replace_file_name() {
+    let tmp_dir = temp_dir();
+    let data_path = setup_test(&tmp_dir);
+    let file_name = "old_name.txt";
+    let new_file_name = "new_name.txt";
+    fs::write(data_path.join(file_name), "This is old content.").unwrap();
+
+    let settings = Settings {
+        replace_path: true,
+        ..Default::default()
+    };
+    run_ruplacer(&data_path, settings).unwrap();
+
+    assert!(data_path.join(new_file_name).exists());
+    assert!(!data_path.join(file_name).exists());
+}

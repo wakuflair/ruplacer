@@ -127,6 +127,13 @@ struct Options {
         help = "Exits without error when no matches are found."
     )]
     allow_empty: bool,
+
+    #[arg(
+        short = 'p',
+        long = "replace-path",
+        help = "Perform replacement on file and directory paths as well."
+    )]
+    replace_path: bool,
 }
 
 fn regex_query_or_die(pattern: &str, replacement: &str, word: bool) -> Query {
@@ -213,6 +220,7 @@ pub fn run() -> Result<()> {
         preserve_case,
         word_regex,
         allow_empty,
+        replace_path,
     } = opt;
 
     let dry_run = !go;
@@ -242,6 +250,7 @@ pub fn run() -> Result<()> {
         selected_file_types,
         ignored_file_types,
         allow_empty,
+        replace_path,
     };
 
     let path = path.unwrap_or_else(|| Path::new(".").to_path_buf());

@@ -56,8 +56,24 @@ impl<'a> DirectoryPatcher<'a> {
         for entry in walker {
             let entry = entry.with_context(|| "Could not read directory entry")?;
             if let Some(file_type) = entry.file_type() {
+                let path = entry.path();
                 if file_type.is_file() {
-                    self.patch_file(entry.path(), query)?;
+                    self.patch_file(path, query)?;
+                }
+                if self.settings.replace_path {
+                    let file_name = entry.file_name().to_string_lossy();
+                    let replacement = crate::replace(&file_name, query);
+                    if let Some(replacement) = replacement {
+                        self.console
+                            .print_replacement(&format!("{}: ", path.display()), &replacement);
+                        self.stats.update(0, 1);
+                        if !self.settings.dry_run {
+                            std::fs::rename(
+                                path,
+                                path.parent().unwrap().join(replacement.output()),
+                            )?;
+                        }
+                    }
                 }
             }
         }

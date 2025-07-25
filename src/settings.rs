@@ -17,4 +17,6 @@ pub struct Settings {
     pub ignored_file_types: Vec<String>,
     /// Exits without an error when no matches are found (default: false)
     pub allow_empty: bool,
+    /// If true, perform replacement on file and directory paths (default: false)
+    pub replace_path: bool,
 }
