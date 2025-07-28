@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use std::path::Path;
 
 use crate::console::Console;
@@ -52,29 +52,59 @@ impl<'a> DirectoryPatcher<'a> {
 
     /// Run the given query on the selected files in self.path
     pub fn run(&mut self, query: &Query) -> Result<()> {
-        let walker = self.build_walker()?;
+        self.run_for_dir(self.path, query)
+    }
+
+    fn run_for_dir(&mut self, path: &Path, query: &Query) -> Result<()> {
+        let walker = self.build_walker(path)?;
         for entry in walker {
             let entry = entry.with_context(|| "Could not read directory entry")?;
             if let Some(file_type) = entry.file_type() {
-                let path = entry.path();
+                let entry_path = entry.path();
+                dbg!(entry_path);
                 if file_type.is_file() {
-                    self.patch_file(path, query)?;
+                    self.patch_file(entry_path, query)?;
                 }
                 if self.settings.replace_path {
-                    let file_name = entry.file_name().to_string_lossy();
-                    let replacement = crate::replace(&file_name, query);
-                    if let Some(replacement) = replacement {
-                        self.console
-                            .print_replacement(&format!("{}: ", path.display()), &replacement);
-                        self.stats.update(0, 1);
-                        if !self.settings.dry_run {
-                            std::fs::rename(
-                                path,
-                                path.parent().unwrap().join(replacement.output()),
-                            )?;
-                        }
+                    if file_type.is_dir() && entry_path != path {
+                        // Depth first traversal
+                        self.run_for_dir(entry_path, query)?;
+                    } else if file_type.is_file() {
+                        self.replace_path(entry_path, query)?;
                     }
                 }
+            }
+        }
+
+        if self.settings.replace_path {
+            // If we are replacing paths, we need to replace the current directory last
+            // to avoid issues with renaming directories while walking through them.
+            self.replace_path(path, query)?;
+        }
+
+        Ok(())
+    }
+
+    fn replace_path(&mut self, entry_path: &Path, query: &Query) -> Result<(), Error> {
+        let name = entry_path
+            .file_name()
+            .with_context(|| format!("Could not get file name for {entry_path:?}"))?
+            .to_string_lossy()
+            .to_string();
+        let replacement = crate::replace(&name, query);
+        if let Some(replacement) = replacement {
+            let num_replacements = replacement.num_fragments();
+            self.console
+                .print_replacement(&format!("{}: ", entry_path.display()), &replacement);
+            if num_replacements != 0 {
+                self.console.print_message("\n");
+            }
+            self.stats.update(0, num_replacements);
+            if !self.settings.dry_run {
+                std::fs::rename(
+                    entry_path,
+                    entry_path.parent().unwrap().join(replacement.output()),
+                )?;
             }
         }
         Ok(())
@@ -84,8 +114,8 @@ impl<'a> DirectoryPatcher<'a> {
         self.stats
     }
 
-    pub(crate) fn patch_file(&mut self, entry: &Path, query: &Query) -> Result<()> {
-        let file_patcher = FilePatcher::new(self.console, entry, query)?;
+    pub(crate) fn patch_file(&mut self, path: &Path, query: &Query) -> Result<()> {
+        let file_patcher = FilePatcher::new(self.console, path, query)?;
         let file_patcher = match file_patcher {
             None => return Ok(()),
             Some(f) => f,
@@ -103,7 +133,7 @@ impl<'a> DirectoryPatcher<'a> {
         Ok(())
     }
 
-    fn build_walker(&self) -> Result<ignore::Walk> {
+    fn build_walker(&self, path: &Path) -> Result<ignore::Walk> {
         let mut types_builder = ignore::types::TypesBuilder::new();
         types_builder.add_defaults();
         let mut count: u32 = 0;
@@ -132,7 +162,7 @@ impl<'a> DirectoryPatcher<'a> {
             }
         }
         let types_matcher = types_builder.build()?;
-        let mut walk_builder = ignore::WalkBuilder::new(self.path);
+        let mut walk_builder = ignore::WalkBuilder::new(path);
         walk_builder.types(types_matcher);
         // Note: the walk_builder configures the "ignore" settings of the Walker,
         // hence the negations
@@ -141,6 +171,13 @@ impl<'a> DirectoryPatcher<'a> {
         }
         if self.settings.hidden {
             walk_builder.hidden(false);
+        }
+
+        // If replacing paths, we want to limit the walker to the current directory,
+        // to avoid walking into a renamed sub directory.
+        // The sub directories will be processed by executing `run_on_path` recursively.
+        if self.settings.replace_path {
+            walk_builder.max_depth(Some(1));
         }
         Ok(walk_builder.build())
     }
