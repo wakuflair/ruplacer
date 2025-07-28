@@ -61,7 +61,6 @@ impl<'a> DirectoryPatcher<'a> {
             let entry = entry.with_context(|| "Could not read directory entry")?;
             if let Some(file_type) = entry.file_type() {
                 let entry_path = entry.path();
-                dbg!(entry_path);
                 if file_type.is_file() {
                     self.patch_file(entry_path, query)?;
                 }

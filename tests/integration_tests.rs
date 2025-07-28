@@ -292,3 +292,36 @@ fn test_can_replace_file_name() {
     assert!(data_path.join(new_file_name).exists());
     assert!(!data_path.join(file_name).exists());
 }
+
+#[test]
+fn test_can_replace_directory_name() {
+    let tmp_dir = temp_dir();
+    let data_path = setup_test(&tmp_dir);
+
+    let settings = Settings {
+        replace_path: true,
+        ..Default::default()
+    };
+    run_ruplacer(&data_path, settings).unwrap();
+
+    assert!(!data_path.join("old dir").exists());
+    assert!(!data_path.join("old dir").join("sub old dir").exists());
+    assert!(!data_path.join("old dir").join("old is old.txt").exists());
+    assert!(
+        !data_path
+            .join("old dir")
+            .join("sub old dir")
+            .join("old file.txt")
+            .exists()
+    );
+
+    assert!(data_path.join("new dir").exists());
+    assert!(data_path.join("new dir").join("sub new dir").exists());
+    assert!(data_path.join("new dir").join("new is new.txt").exists());
+    let path = data_path
+        .join("new dir")
+        .join("sub new dir")
+        .join("new file.txt");
+    assert!(path.exists());
+    assert_replaced(path.as_path());
+}
